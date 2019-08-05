@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# Reconfigures Raspberry Pi networking control between systemd-networkd, dhcpcd, and Network Manager
+
+function EnableAndStart() {
+    systemctl enable $1
+    systemctl start $1
+}
+
+function StopAndDisable() {
+    if systemctl is-enabled $1 > /dev/null 2>&1
+    then
+	systemctl stop $1
+	systemctl disable $1
+    fi
+}
+
+function DisableDHCPcd() {
+    systemctl daemon-reload
+    StopAndDisable dhcpcd
+    StopAndDisable wpa_supplicant
+}
+
+function DisableSystemdNetworkd() {
+    systemctl daemon-reload
+    StopAndDisable systemd-networkd
+    StopAndDisable systemd-resolved
+    echo "You may need to futz with /etc/resolv.conf, this has not been tested"
+    sed -i '1d' /etc/resolvconf.conf               # For systemd-resolved
+    StopAndDisable wpa_supplicant@wlan0
+}
+
+function DisableNetworkManager() {
+    if dpkg-query -s network-manager > /dev/null 2>&1
+    then
+	StopAndDisable NetworkManager
+	StopAndDisable ModemManager
+    fi
+}
+
+function ReportStatus() {
+    local sts="disabled"
+    if systemctl is-enabled $1 > /dev/null 2>&1
+    then
+	sts="enabled"
+    fi
+    printf ">> %-16s %s\n" $1 $sts
+}
+
+if [ "$1" == "" ]
+then
+    echo -n "Use [H]elp, [D]hcpcd, [S]ystemd-networkd, or [N]network Manager [DSN]? " ; read $2 ans
+else
+    ans="$1"
+fi
+#[ "$ans" == "" ] && ans="d"
+case "$ans" in
+    d*|D*)
+	echo "Using dhcpcd..."
+	DisableSystemdNetworkd
+	DisableNetworkManager
+	EnableAndStart dhcpcd
+	;;
+
+    n*|N*)
+	echo "Using Network Manager..."
+	DisableDHCPcd
+	DisableSystemdNetworkd
+	if ! dpkg-query -s NetworkManager > /dev/null 2>&1
+	then
+	    apt-get install network-manager
+	    cp /root/nm/system-connections/* /etc/NetworkManager/system-connections
+	fi
+	systemctl stop NetworkManager
+	echo "** Make sure that wifi is connected as desired"
+	echo "** nmcli con up profilename"
+	EnableAndStart NetworkManager
+#	EnableAndStart ModemManager
+	;;
+
+    s*|S*)
+	echo "Using systemd-networkd..."
+	DisableDHCPcd
+	DisableNetworkManager
+	fn="/etc/systemd/network/10-eth0.network"
+	if [ ! -e $fn ]
+	then
+	    echo "Creating $fn..."
+	    cat > $fn <<EOF
+[Match]
+Name=eth0
+
+[Network]
+DHCP=Yes
+LinkLocalAddressing=No
+IPv4LL=false
+
+[DHCP]
+UseDomains=yes
+EOF
+	fi
+	fn="/etc/systemd/network/11-wlan0.network"
+	if [ ! -e $fn ]
+	then
+	    echo "Creating $fn..."
+	    cat > $fn <<EOF
+
+[Match]
+Name=wlan0
+
+[Network]
+DHCP=ipv4
+
+[DHCP]
+RouteMetric=20
+UseDomains=yes
+EOF
+	fi
+	sed -i '1i resolvconf=NO' /etc/resolvconf.conf               # For systemd-resolved
+	ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf     # ...
+	EnableAndStart wpa_supplicant@wlan0
+	EnableAndStart systemd-networkd
+	EnableAndStart systemd-resolved
+	;;
+
+    h*|H*)
+	echo "Current Network Configuration status"
+	ReportStatus dhcpcd
+	ReportStatus systemd-networkd
+	ReportStatus NetworkManager
+	ReportStatus ModemManager
+	exit
+	;;
+    *)
+	echo "% Unrecognized network configuration selection"
+	echo "% Network configuration not changed"
+	exit
+	;;
+esac
+
+echo ""
+echo ">> Network configuration updated"
+echo ">> You must reboot the system now"
+echo ""
+
