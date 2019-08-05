@@ -7,9 +7,11 @@ autoAP provides a simple mechanism for turning a Raspberry Pi into an Access Poi
 
 autoAP is not intended to replace hostapd. If your use case needs a full-function Access Point, you want hostapd. A typical use case for autoAP would be for a Pi that you're taking outside of your known WiFi networks, and want to connect to it from another device in order to configure it, use it for demonstration purposes, etc.
 
-autoAP was initially created by [jake](https://raspberrypi.stackexchange.com/users/92303/jake) and posted in the article [Automatically Create Hotspot if no Network is Available](https://raspberrypi.stackexchange.com/questions/100195/automatically-create-hotspot-if-no-network-is-available). There are other tools, such as [wifi-connect](https://github.com/balena-io/wifi-connect). My take is that wifi-connect is a more heavyweight solution with correspondingly more features.
+autoAP was initially created by [jake](https://raspberrypi.stackexchange.com/users/92303/jake) and posted in the article [Automatically Create Hotspot if no Network is Available](https://raspberrypi.stackexchange.com/questions/100195/automatically-create-hotspot-if-no-network-is-available). autoAP is built on the original idea, but with code improvements and an easy-to-use installer.
 
-autoAP, on the other hand, is super-lightweight, and can install on Raspbian Full or Raspbian Lite without requiring any additional software to be installed.
+There are other tools, such as [wifi-connect](https://github.com/balena-io/wifi-connect). My take is that wifi-connect is a more heavyweight solution with correspondingly more features.
+
+autoAP, on the other hand, is super-lightweight, and can install on Raspbian Full or Raspbian Lite and does not require any additional software to be installed.
 
 ## Requirements
 
@@ -23,7 +25,6 @@ autoAP has minimal system requirements, but they are important:
 Download install-autoAP and autoAP.sh to /usr/local/bin on your Pi, and run install-autoAP:
 
 Download/install directions:
-https://github.com/gitbls/autoAP/raw/master/autoAP.sh
 
 * `sudo curl -L https://github.com/gitbls/autoAP/raw/master/autoAP.sh -o /usr/local/bin/autoAP.sh`
 * `sudo curl -L https://github.com/gitbls/autoAP/raw/master/install-autoAP -o /usr/local/bin/install-autoAP`
@@ -62,8 +63,8 @@ In sommary, the network configuration files for systemd-networkd are (all in /et
 
 And the systemd services installed are (all in /etc/systemd/system):
 
-* **wpa-autoap@wlan0.service** - The main service for autoAP
-* **wpa-autop-restore.service** - Restores the network configuration, if needed, when the system is restarted
+* **wpa-autoap@wlan0 .service** - The main service for autoAP
+* **wpa-autoap-restore.service** - Restores the network configuration, if needed, when the system is restarted
 
 If you made it this far, it's time to reboot!
 
@@ -85,7 +86,7 @@ To disable:
 
 The system startup will proceed normally. The wpa-autoap@wlan0 service is bound to the service wpa_supplicant@wlan0, so systemd will start it automatically if it's enabled. wpa_supplicant@wlan0 is running the same old wpa_supplicant, so it will process WiFi connects, disconnects, etc, just as before. 
 
-If wpa_supplicant times out trying to connect to your WiFi (for instance, if the Pi is not at home or your router/access point is down), it will then look at the next defined network (the autoap Access Point network), which changes the wpa_supplicant mode to AP. A message is sent to wpa-autoap (via wpa_cli), which calls /usr/local/bin/autoAP.sh with the network name and the event AP-ENABLED. autoAP will reconfigure the network to Access Point mode, restart systemd-networkd, and call /usr/local/bin/autoap-local.sh to do any additional desired processing.
+If wpa_supplicant times out trying to connect to your WiFi (for instance, if the Pi is not at home or your router/access point is down), it will then look at the next defined network (the autoap Access Point network), which changes the wpa_supplicant mode to AP. A message is sent to wpa-autoap (wpa_cli), which calls /usr/local/bin/autoAP.sh with the network name and the event AP-ENABLED. autoAP will reconfigure the network to Access Point mode, restart systemd-networkd, and call /usr/local/bin/autoap-local.sh to do any additional desired processing.
 
 When the last client disconnects from the Access Point, autoAP will wait disconnectwait time units before reverting to WiFi scanning mode, looking for your WiFi network. And, if your WiFi network is not found, it will restart Access Point mode.
 
@@ -93,11 +94,11 @@ Similarly, when the Access Point is started, it will wait enablewait time units 
 
 ## Troubleshooting
 
-If things are not working for you, the first step in tracking things down is to examine the system journal (journalctl) for error information. You can also enable debugging, which will output additional status information to the system journal. You enable debugging by sudo editing /usr/local/bin/autoAP.conf and changing debug=1 to debug=0. The debug logging will start the next time wpa_supplicant notices a wireless transition or the autoAP reconfigure timer expires.
+The first step in tracking down problems is to examine the system journal (journalctl) for error information. You can also enable debugging, which will output additional status information to the system journal. You enable debugging by sudo editing /usr/local/bin/autoAP.conf and changing debug=1 to debug=0. The debug logging will start the next time wpa_supplicant notices a wireless transition or the autoAP reconfigure timer expires.
 
 ## Known Issues
 
-* If wpa-autoap@wlan0 is enabled at system startup, it may fail to start the first or second time due to an apparent startup race condition between it and wpa_supplicant@wlan0. It's completely harmless since the service automatically restarts on failure, but for those of you who look through logs, you may see this.
+* If wpa-autoap@wlan0 is enabled at system startup, it may fail to start the first or second time due to what appears to be a startup race condition between it and wpa_supplicant@wlan0. It's completely harmless since the service automatically restarts on failure, but for those of you who look through logs, you may see this.
 * ???
 
 ## Futures
