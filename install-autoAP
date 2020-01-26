@@ -180,16 +180,16 @@ logmsg () {
 
 case "\$1" in
     Client)
-          logmsg --id "/usr/local/bin/autoap-local: Client"
+          logmsg --id "/usr/local/bin/autoAP-local: Client"
 	  ## Add your code here that runs when the Client WiFi is enabled
 	  ;;
     AccessPoint)
-          logmsg --id "/usr/local/bin/autoap-local: Access Point"
+          logmsg --id "/usr/local/bin/autoAP-local: Access Point"
 	  ## Add your code here that runs when the Access Point is enabled
 	  ;;
 esac
 EOF
-chmod 755 /usr/local/bin/autoap-local.sh
+chmod 755 /usr/local/bin/autoAP-local.sh
 
 echo ""
 echo "Modifying WPA services..."
