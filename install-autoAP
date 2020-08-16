@@ -46,9 +46,9 @@ apip=$(read ans; echo $ans)
 wpafn="/etc/wpa_supplicant/wpa_supplicant.conf"
 if [ -f "$wpafn" ]
 then
-    country=$(grep country= $wpafn | (IFS='='; read a b ; echo $b))
-    ssid=$(grep ssid= $wpafn | (IFS='='; read a b ; echo $b))
-    psk=$(grep psk= $wpafn | (IFS='='; read a b ; echo $b))
+    country=$(grep country= $wpafn | awk -F= '{ gsub(/"/, "", $2); print $2 }')
+    ssid=$(grep ssid= $wpafn | awk -F= '{ gsub(/"/, "", $2); print $2 }')
+    psk=$(grep psk= $wpafn | awk -F= '{ gsub(/"/, "", $2); print $2 }')
     echo ""
     echo "Renaming $wpafn to $wpafn-orig to avoid future confusion..."
     mv $wpafn $wpafn-orig
