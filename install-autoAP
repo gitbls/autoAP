@@ -180,11 +180,11 @@ logmsg () {
 
 case "\$1" in
     Client)
-          logmsg --id "/usr/local/bin/autoAP-local: Client"
+          logmsg "/usr/local/bin/autoAP-local: Client"
 	  ## Add your code here that runs when the Client WiFi is enabled
 	  ;;
     AccessPoint)
-          logmsg --id "/usr/local/bin/autoAP-local: Access Point"
+          logmsg "/usr/local/bin/autoAP-local: Access Point"
 	  ## Add your code here that runs when the Access Point is enabled
 	  ;;
 esac
