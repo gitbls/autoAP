@@ -15,15 +15,14 @@ function askyn() {
 fdhcpcd=1
 echo ""
 echo "Install autoAP into the current running system"
-if [ "$(systemctl is-active networkd-systemd)" != "active" ]
+if [ "$(systemctl is-active systemd-networkd)" != "active" ]
 then
     echo ""
-    echo "? This system is not configured to use systemd-networkd."
-    echo "  You must switch to using systemd-networkd to use autoAP."
-    echo "  You can use /usr/local/bin/rpi-networkconfig to reconfigure your networking."
-    echo "  This can easily be done after this install has completed."
+    echo "? This system is not configured to use systemd-networkd"
+    echo "  You must switch to using systemd-networkd to use autoAP"
+    echo "  You can use /usr/local/bin/rpi-networkconfig to reconfigure your networking"
     echo "  rpi-networkconfig will configure wlan0 and eth0 to be DHCP-enabled"
-    echo "  You will need to restart the system after this installation completes"
+    echo "  This can be done after install-autoAP has completed."
     echo ""
     if ! askyn "Do you want to continue with autoAP installation"
     then
@@ -36,27 +35,27 @@ echo ""
 echo -n "SSID for Access Point mode: "
 apssid=$(read ans; echo $ans)
 echo -n "Password for Access Point mode: "
-appassword=$(read ans; echo $ans)
+appsk=$(read ans; echo $ans)
 echo -n "IPV4 address for Access Point mode [192.168.16.1]: "
 apip=$(read ans; echo $ans)
 [ "$apip" == "" ] && apip="192.168.16.1"
+apssid="${apssid//\"/}"   # Remove double quotes from SSID and password
+appsk="${appsk//\"/}" 
 #
 # Get existing WiFi configuration
 #
 wpafn="/etc/wpa_supplicant/wpa_supplicant.conf"
+[ ! -f "$wpafn" -a -f "/etc/wpa_supplicant/wpa_supplicant-wlan0.conf" ] && wpafn="/etc/wpa_supplicant/wpa_supplicant-wlan0.conf"
 if [ -f "$wpafn" ]
 then
     country=$(grep country= $wpafn | (IFS='='; read a b ; echo $b))
     ssid=$(grep ssid= $wpafn | (IFS='='; read a b ; echo $b))
     psk=$(grep psk= $wpafn | (IFS='='; read a b ; echo $b))
-    echo ""
-    echo "Renaming $wpafn to $wpafn-orig to avoid future confusion..."
-    mv $wpafn $wpafn-orig
 fi
 if [ "$country" == "" -o "$ssid" == "" -o "$psk" == "" ]
 then
     echo ""
-    echo "% No appropriate wpa_supplicant config found, please provide config..."
+    echo "% No appropriate wpa_supplicant configuration found, please provide..."
     echo ""
     echo -n "Your Country [US]: "
     country=$(read ans; echo $ans)
@@ -66,14 +65,16 @@ then
     echo -n "Your WiFi password: "
     psk=$(read ans; echo $ans)
 fi
+ssid="${ssid//\"/}"    # Remove double quotes
+psk="${psk//\"/}"
 echo ""
 echo "        autoAP Configuration"
-echo "Access Point SSID:     $apssid"
-echo "Access Point password: $appassword"
-echo "Access Point IP addr:  $apip"
-echo "Your WiFi country:     $country"
-echo "Your WiFi SSID:        $ssid"
-echo "Your WiFi password:    $psk"
+echo " Access Point SSID:     $apssid"
+echo " Access Point password: $appsk"
+echo " Access Point IP addr:  $apip"
+echo " Your WiFi country:     $country"
+echo " Your WiFi SSID:        $ssid"
+echo " Your WiFi password:    $psk"
 echo ""
 if ! askyn "Are you ready to proceed"
 then
@@ -82,10 +83,14 @@ then
     exit 0
 fi
 
+echo ""
+echo "Renaming $wpafn"
+echo " to ${wpafn}-orig to avoid future confusion..."
+[ -f ${wpafn}-orig ] && rm -f ${wpafn}-orig.bak && mv ${wpafn}-orig ${wpafn}-orig.bak
+mv $wpafn ${wpafn}-orig
 wpafn="/etc/wpa_supplicant/wpa_supplicant-wlan0.conf"   # Always write to this config file
 echo ""
 echo "Creating $wpafn..."
-echo ""
 cat > $wpafn <<EOF
 country=$country
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
@@ -103,13 +108,14 @@ network={
     ssid="$apssid"
     mode=2
     key_mgmt=WPA-PSK
-    psk="$appassword"
+    psk="$appsk"
     frequency=2462
 }
 EOF
 
 echo ""
 echo "Creating WiFi network files in /etc/systemd/network..."
+[ -f /etc/systemd/network/11-wlan0.network ] && mv /etc/systemd/network/11-wlan0.network /etc/systemd/network/.11-wlan0.network.bak
 cat > /etc/systemd/network/11-wlan0.network <<EOF
 [Match]
 Name=wlan0
@@ -122,6 +128,7 @@ RouteMetric=20
 UseDomains=yes
 
 EOF
+[ -f /etc/systemd/network/12-wlan0AP.network ] && mv /etc/systemd/network/12-wlan0AP.network /etc/systemd/network/.12-wlan0AP.network.bak
 cat > /etc/systemd/network/12-wlan0AP.network <<EOF
 [Match]
 Name=wlan0
@@ -131,18 +138,20 @@ DHCPServer=yes
 Address=$apip/24
 
 EOF
+
 echo ""
 echo "Creating /etc/systemd/system/wpa-autoap@wlan0.service configuration file..."
+[ -f /etc/systemd/network/wpa-autoap@wlan0.service ] && mv /etc/systemd/network/wpa-autoap@wlan0.service /etc/systemd/network/.wpa-autoap@wlan0.service.bak
 cat > /etc/systemd/system/wpa-autoap@wlan0.service <<EOF
 [Unit]
-Description=autoAP Automatically Create Access Point if Client WiFi Connection not Available
-After=network.target network-online.target wpa_supplicant@%i.service sys-subsystem-net-devices-%i.device
+Description=autoAP Automatic Access Point When No WiFi Connection (wpa-autoap@wlan0.service)
+#After=network.target network-online.target wpa_supplicant@%i.service sys-subsystem-net-devices-%i.device
+Before=wpa_supplicant@%i.service
 BindsTo=wpa_supplicant@%i.service
 
 [Service]
 Type=simple
-ExecStartPre=/usr/local/bin/autoAP.sh reset
-ExecStart=/sbin/wpa_cli -i %I -a /usr/local/bin/autoAP.sh
+ExecStart=/usr/local/bin/autoAP.sh start %I
 Restart=on-failure
 TimeoutSec=1
 
@@ -150,41 +159,40 @@ TimeoutSec=1
 WantedBy=multi-user.target
 
 EOF
-echo ""
-echo "Creating /etc/systemd/system/wpa-autoap-restore.service configuration file..."
-cat > /etc/systemd/system/wpa-autoap-restore.service <<EOF
-[Unit]
-Description=Restore wpa-autoap configuration
-DefaultDependencies=no
-After=local-fs-pre.target
+#
+# Disable wpa-autoap-restore. It's no longer needed
+#
+if [ -f /etc/systemd/system/wpa-autoap-restore.service ]
+then
+    if [ "$(systemctl is-enabled wpa-autoap-restore)" == "enabled" ]
+    then
+	echo "% Disabling service wpa-autoap-restore; it is no longer needed"
+	systemctl disable wpa-autoap-restore.service
+	# Rename the file to hidden 
+	mv /etc/systemd/system/wpa-autoap-restore.service /etc/systemd/system/.wpa-autoap-restore.service-can-be-deleted
+    fi
+fi    
 
-[Service]
-Type=oneshot
-ExecStart=/bin/bash -c '[ -x /usr/local/bin/autoAP.sh ] && /usr/local/bin/autoAP.sh reset'
-
-[Install]
-WantedBy=multi-user.target
-
-EOF
 echo ""
 echo "Creating /usr/local/bin/autoAP-local.sh..."
+[ -f /usr/local/bin/autoAP-local.sh ] && mv /usr/local/bin/autoAP-local.sh /usr/local/bin/autoAP-local.sh.bak
 cat > /usr/local/bin/autoAP-local.sh <<EOF
 #!/bin/bash
 # \$1 has either "Client" or "AccessPoint"
 
 logmsg () {
-    [ \$debug -eq 0 ] && logger --id "\$1"
+    [ \$debug -eq 0 ] && logger --id=\$\$ "\$1"
 }
 
-[ -f /usr/local/bin/autoAP.conf ] && source /usr/local/bin/autoAP.conf || debug=1
+[ -f /usr/local/bin/autoAP.conf ] && source /usr/local/bin/autoAP.conf || debug=0
 
 case "\$1" in
     Client)
-          logmsg --id "/usr/local/bin/autoAP-local: Client"
+          logmsg "/usr/local/bin/autoAP-local: Client"
 	  ## Add your code here that runs when the Client WiFi is enabled
 	  ;;
     AccessPoint)
-          logmsg --id "/usr/local/bin/autoAP-local: Access Point"
+          logmsg "/usr/local/bin/autoAP-local: Access Point"
 	  ## Add your code here that runs when the Access Point is enabled
 	  ;;
 esac
@@ -192,29 +200,49 @@ EOF
 chmod 755 /usr/local/bin/autoAP-local.sh
 
 echo ""
-echo "Modifying WPA services..."
 systemctl daemon-reload
-echo "Disable wpa_supplicant..."
-systemctl disable wpa_supplicant
-echo "Enable wpa_supplicant@wlan0 and wpa-autoap@wlan0..."
+echo "Modifying WPA services..."
+echo "Enabling wpa_supplicant@wlan0..."
 systemctl enable wpa_supplicant@wlan0
-systemctl enable wpa-autoap-restore             # This should always be enabled so don't need to think about it!
-if askyn "Do you want to enable the wpa-autoap@wlan0 service"
-then
-    systemctl enable wpa-autoap@wlan0
-fi
+echo "Disabling (vanilla) wpa_supplicant..."
+systemctl disable wpa_supplicant
+echo ""
+echo "Enabling wpa-autoap@wlan0 service"
+echo "If you don't want it to be enabled, do: sudo systemctl disable wpa-autoap@wlan0"
+systemctl enable wpa-autoap@wlan0
 
 echo ""
 echo "Creating /usr/local/bin/autoAP.conf..."
-[ -f /usr/local/bin/autoAP.conf ] && rm -f /usr/local/bin/autoAP.conf
-echo 'enablewait="180"' > /usr/local/bin/autoAP.conf
-echo 'disconnectwait="20"' >> /usr/local/bin/autoAP.conf
-echo 'debug=1' >> /usr/local/bin/autoAP.conf
+[ -f /usr/local/bin/autoAP.conf ] && mv /usr/local/bin/autoAP.conf /usr/local/bin/autoAP.conf.bak
+cat > /usr/local/bin/autoAP.conf <<EOF
+#
+# enablewait
+#  In AP mode, number of seconds to wait before retrying regular WiFi connection
+#
+enablewait=300
+#
+# disconnectwait
+#  number of seconds to wait after last AP client disconnects before retrying regular WiFi connection
+#
+disconnectwait=20
+#
+# debug logging
+#  0:debug logging on
+#  1:debug logging off
+#
+debug=0
+EOF
 
+echo ""
+echo "% Review the settings in /usr/local/bin/autoAP.conf"
 if [ $fdhcpcd -eq 0 ]
 then
     echo ""
-    echo "** Reminder: Your system must use systemd-networkd to work with autoAP. Look at /usr/local/bin/rpi-networkconfig"
+    echo "** Reminder: Your system must use systemd-networkd to work with autoAP"
+    echo "             Look at /usr/local/bin/rpi-networkconfig"
+    echo "             Do this before rebooting your system"
     echo ""
 fi
+echo ""
 echo "autoAP installation complete"
+echo "Please reboot the system for the configuration changes to take effect"
