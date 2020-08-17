@@ -49,11 +49,11 @@ function ReportStatus() {
 
 if [ "$1" == "" ]
 then
-    echo -n "Use [H]elp, [D]hcpcd, [S]ystemd-networkd, or [N]network Manager [DSN]? " ; read $2 ans
+    echo -n "Use [H]elp, [D]hcpcd, [S]ystemd-networkd, or [N]network Manager [S]? " ; read $2 ans
 else
     ans="$1"
 fi
-#[ "$ans" == "" ] && ans="d"
+[ "$ans" == "" ] && ans="s"
 case "$ans" in
     d*|D*)
 	echo "Using dhcpcd..."
