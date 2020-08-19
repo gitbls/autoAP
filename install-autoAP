@@ -116,6 +116,7 @@ EOF
 echo ""
 echo "Creating WiFi network files in /etc/systemd/network..."
 [ -f /etc/systemd/network/11-wlan0.network ] && mv /etc/systemd/network/11-wlan0.network /etc/systemd/network/.11-wlan0.network.bak
+[ -f /etc/systemd/network/11-wlan0.network~ ] && rm -f /etc/systemd/network/11-wlan0.network~
 cat > /etc/systemd/network/11-wlan0.network <<EOF
 [Match]
 Name=wlan0
@@ -160,18 +161,31 @@ WantedBy=multi-user.target
 
 EOF
 #
-# Disable wpa-autoap-restore. It's no longer needed
+# set up wpa-autoap-restore service
+# Needed in the case that
+#      * 11-wlan0.network is in the disabled state (there is a client connected)
+#      * wpa-autoap@wlan0 service is not enabled at reboot
+#      * system reboots
+#      * 11-wlan0.network still in the disabled state, so no WiFi connection
+# This service should always be enabled. VERY low cost!
 #
-if [ -f /etc/systemd/system/wpa-autoap-restore.service ]
-then
-    if [ "$(systemctl is-enabled wpa-autoap-restore)" == "enabled" ]
-    then
-	echo "% Disabling service wpa-autoap-restore; it is no longer needed"
-	systemctl disable wpa-autoap-restore.service
-	# Rename the file to hidden 
-	mv /etc/systemd/system/wpa-autoap-restore.service /etc/systemd/system/.wpa-autoap-restore.service-can-be-deleted
-    fi
-fi    
+echo "Creating /etc/systemd/system/wpa-autoap-restore.service configuration file..."
+[ -f /etc/systemd/system/wpa-autoap-restore.service ] && mv -f /etc/systemd/system/wpa-autoap-restore.service /etc/systemd/system/wpa-autoap-restore.service.bak
+cat > /etc/systemd/system/wpa-autoap-restore.service <<EOF
+[Unit]
+Description=Restore wpa-autoap configuration (wpa-autoap-restore.service)
+DefaultDependencies=no
+After=local-fs-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c '[ -x /usr/local/bin/autoAP.sh ] && /usr/local/bin/autoAP.sh reset'
+
+[Install]
+WantedBy=multi-user.target
+
+EOF
+systemctl enable wpa-autoap-restore
 
 echo ""
 echo "Creating /usr/local/bin/autoAP-local.sh..."

@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # This script is run by wpa_cli (which runs as part of the wpa-autoap service) when the WiFi network state changes
-# $1 has the interface name (EXCEPT for the unique case when it has "start")
+# $1 has the interface name (EXCEPT for the unique cases of "reset" and "start")
 # $2 has one of: AP-ENABLED, AP-DISABLED, CONNECTED, AP-STA-CONNECTED, AP-STA-DISCONNECTED, or DISCONNECTED
 # $3 has a MAC address for (at least) AP-STA-CONNECTED and AP-STA-DISCONNECTED
 #
@@ -75,6 +75,12 @@ reconfigure_wpa_supplicant () {
 	fi
     fi
 }
+
+do_reset() {
+    [ -f /var/run/autoAP.locked ] && rm -f /var/run/autoAP.locked
+    [ -f /var/run/autoAP.unlock ] && rm -f /var/run/autoAP.unlock
+    [ -f /etc/systemd/network/11-wlan0.network~ ] && mv /etc/systemd/network/11-wlan0.network~ /etc/systemd/network/11-wlan0.network
+}
 #
 # Main code
 #
@@ -89,6 +95,15 @@ fi
 # Uncomment this if needed for debugging
 #logger --id=$$ "autoAP enablewait=$enablewait | disconnectwait=$disconnectwait | debug=$debug"
 
+# "reset" called from wpa-autoap-restore.service
+#
+# $1 = "start"
+
+if [ "$1" == "reset" ]
+then
+    do_reset
+    exit 0
+fi
 #
 # "start" called from wpa-autoAP@wlan0.service
 # $1 = "start"
@@ -96,9 +111,7 @@ fi
 #
 if [ "$1" == "start" ]
 then
-    [ -f /var/run/autoAP.locked ] && rm -f /var/run/autoAP.locked
-    [ -f /var/run/autoAP.unlock ] && rm -f /var/run/autoAP.unlock
-    [ -f /etc/systemd/network/11-wlan0.network~ ] && mv /etc/systemd/network/11-wlan0.network~ /etc/systemd/network/11-wlan0.network
+    do_reset
     while [ ! -e /var/run/wpa_supplicant/$2 ]  # -e to test if in the namespace
     do
 	logmsg "autoAP: Waiting for wpa_supplicant to come online"

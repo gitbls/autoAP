@@ -66,7 +66,7 @@ In sommary, the network configuration files for systemd-networkd in **/etc/syste
 And the systemd services installed are in **/etc/systemd/system**:
 
 * **wpa-autoap@wlan0 .service** &mdash; The main service for autoAP
-* **wpa-autoap-restore.service** &mdash; Restores the network configuration, if needed, when the system is restarted
+* **wpa-autoap-restore.service** &mdash; Restores the network configuration as needed when the system is restarted
 
 If you made it this far, it's time to reboot!
 
@@ -82,6 +82,8 @@ To enable:
 To disable:
 
 * `sudo systemctl disable wpa-autoap@wlan0`
+
+**NOTE: **Do not disable the wpa-autoap-restore service. It is needed to re-enable the standard WiFi connection. See /usr/local/bin/install-autoap for details.
 
 
 ### Detailed Operational Description
