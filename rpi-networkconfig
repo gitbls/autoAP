@@ -47,6 +47,11 @@ function ReportStatus() {
     printf ">> %-16s %s\n" $1 $sts
 }
 
+if [[ ! $EUID -eq 0 ]];then
+    echo "? Please run as root: sudo $0 $1 $2"
+    exit 1
+fi
+
 if [ "$1" == "" ]
 then
     echo -n "Use [H]elp, [D]hcpcd, [S]ystemd-networkd, or [N]network Manager [S]? " ; read $2 ans
