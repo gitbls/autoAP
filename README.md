@@ -45,7 +45,7 @@ install-autoAP will configure your system for autoAP. The detailed steps are des
 * Write the file /etc/wpa_supplicant/wpa_supplicant-wlan0.conf with the gathered information, defining both your WiFi network and the Access Point mode SSID and Password
 * *All double quotes will be removed from SSIDs and passwords*, so don't use a double quote in a password or SSID name. If you do, you'll need to manually edit /etc/wpa_supplicant/wpa_supplicant-wlan0.conf to correct the entry.
 * install-autoAP will create:
-    * **/etc/systemd/system/11-wlan0.network** and **12-wlan0AP.network**. These are the network configuration files used by systemd-networkd for your wireless network.
+    * **/etc/systemd/network/11-wlan0.network** and **12-wlan0AP.network**. These are the network configuration files used by systemd-networkd for your wireless network.
     * **/etc/systemd/system/wpa-autoap@wlan0.service**, which is the service definition for the process that monitors the WiFi status and switches from Access Point mode to Client mode (and back) as appropriate.
     * **/usr/local/bin/autoap-local.sh**, which is a skeleton file that you can modify to call your scripts or programs that are interested in WiFi mode changes. For instance, if you want to start a program when the Pi enters Access Point mode (and stop when it enters Client mode), you would add the appropriate start and stop commands in the fairly obvious places
     * **/usr/local/bin/autoAP.conf**, which has the autoAP monitor configuration information. The parameters are:
