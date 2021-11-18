@@ -24,6 +24,11 @@ autoAP has minimal system requirements, but they are important:
 
 Download install-autoAP, autoAP.sh, and rpi-networkconfig to /usr/local/bin on your Pi, and run install-autoAP:
 
+Installation one-liner:
+```
+curl -s https://raw.githubusercontent.com/gitbls/autoAP/main/installation_oneliner.sh | bash && sudo /usr/local/bin/install-autoAP
+```
+
 Download/install directions:
 
 * `sudo curl -L https://github.com/gitbls/autoAP/raw/master/autoAP.sh -o /usr/local/bin/autoAP.sh`
