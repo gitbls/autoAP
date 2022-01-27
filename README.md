@@ -57,7 +57,7 @@ As a last step, install-autoAP will remind you to switch to systemd-networkd if 
 
 `sudo /usr/local/bin/rpi-networkconfig` will make the appropriate network software configuration changes to enable your selected network "machinery". rpi-networkconfig can switch between dhcpcd, systemd-networkd, and NetworkManager, although configuration files are only created for systemd-networkd. rpi-networkconfig will not overwrite the configuration written by install-autoAP. rpi-networkconfig will create /etc/systemd/system/10-eth0.network for your Ethernet device, and it will be set for DHCP operation. 
 
-In sommary, the network configuration files for systemd-networkd in **/etc/systemd/network**:
+In summary, the network configuration files for systemd-networkd in **/etc/systemd/network**:
 
 * **10-eth0.network** &mdash; Defines the network for the Ethernet device
 * **11-wlan0.network** &mdash; Defines the network for the WiFi device in normal mode
